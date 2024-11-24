@@ -27,6 +27,9 @@ local EventSystem = {
     ---@field onPlayerHealthChanged string
     ---@field onItemSpawn string
     ---@field onItemDespawn string
+    ---@field onCastAbility string
+    ---@field onTargetBuffGain string
+    ---@field onTargetBuffLose string
     events = {
         onNpcSpawn = "onNpcSpawn",
         onNpcDeath = "onNpcDeath",
@@ -37,6 +40,13 @@ local EventSystem = {
         onPlayerHealthChanged = "onPlayerHealthChanged",
         onItemSpawn = "onItemSpawn",
         onItemDespawn = "onItemDespawn",
+        onTargetBuffGain = "onTargetBuffGain",
+        onTargetBuffLose = "onTargetBuffLose",
+        --[[
+            to track this, create a list of all previous abilities cooldowns,
+            if any of them were 0, and now different, then an ability was cast
+        ]]
+        onCastAbility = "onCastAbility",
     },
     _npcs = {},
     _players = {},
@@ -44,10 +54,33 @@ local EventSystem = {
     _previousNpcAnimations = {},
     _previousPlayerAnimations = {},
     _previousPlayerHealth = API.GetHP_(),
+    _previousTargetBuffs = {},
+    _previousAbilityCooldowns = {},
 }
 
 ---@description Subscribe to an event
----@param eventName string: The name of the event
+---@alias NpcSpawnCallback fun(npc: AllObject)
+---@alias NpcDeathCallback fun(npc: AllObject)
+---@alias NpcAnimationChangeCallback fun(npc: AllObject, animationId: number)
+---@alias PlayerSpawnCallback fun(player: AllObject)
+---@alias PlayerAnimationChangeCallback fun(player: AllObject, animationId: number)
+---@alias PlayerHealthChangeCallback fun(previousHealth: number, newHealth: number)
+---@alias ItemSpawnCallback fun(item: AllObject)
+---@alias ItemDespawnCallback fun(item: AllObject)
+---@alias TargetBuffGainCallback fun(target: AllObject, buffId: number)
+---@alias TargetBuffLoseCallback fun(target: AllObject, buffId: number)
+---@alias CastAbilityCallback fun(ability: Abilitybar)
+---@param eventName '"onNpcSpawn"' # Expects NpcSpawnCallback
+---| '"onNpcDeath"' # Expects NpcDeathCallback
+---| '"onNpcAnimationChange"' # Expects NpcAnimationChangeCallback
+---| '"onPlayerSpawn"' # Expects PlayerSpawnCallback
+---| '"onPlayerAnimationChange"' # Expects PlayerAnimationChangeCallback
+---| '"onPlayerHealthChanged"' # Expects PlayerHealthChangeCallback
+---| '"onItemSpawn"' # Expects ItemSpawnCallback
+---| '"onItemDespawn"' # Expects ItemDespawnCallback
+---| '"onCastAbility"' # Expects CastAbilityCallback
+---| '"onTargetBuffGain"' # Expects TargetBuffGainCallback
+---| '"onTargetBuffLose"' # Expects TargetBuffLoseCallback
 ---@param callback function: The function to call when the event is triggered
 function EventSystem:subscribe(eventName, callback)
     if not self.listeners[eventName] then
@@ -79,6 +112,8 @@ end
 ---@description Track events - to be called in the main loop
 function EventSystem:trackEvents()
     self:_allEntitiesLoop()
+    self:_trackTargetBuffs()
+    self:_trackCastAbility()
 end
 
 ---@description Track NPC events
@@ -169,6 +204,54 @@ function EventSystem:_allEntitiesLoop()
     self._npcs = currentNpcs
     self._players = currentPlayers
     self._items = currentItems
+end
+
+---@description Track target buffs
+function EventSystem:_trackTargetBuffs()
+    local targetInfo = API.ReadTargetInfo(false)
+    if not targetInfo.Buff_stack then
+        return
+    end
+
+    for _, buff in ipairs(targetInfo.Buff_stack) do
+        if buff == -1 then
+            goto continue
+        end
+        if not self._previousTargetBuffs[buff] then
+            self:trigger(self.events.onTargetBuffGain, targetInfo.Target_Name, buff)
+        end
+        self._previousTargetBuffs[buff] = true
+        ::continue::
+    end
+end
+
+function EventSystem:_getAllAbilities()
+    ---@type Abilitybar[]
+    local abilities = {}
+    for i = 0, 5 do
+        ---@type Abilitybar[]
+        local abilityBar = API.GetABarInfo(i)
+        for _, ability in ipairs(abilityBar) do
+            if ability.name ~= "" then
+                table.insert(abilities, ability)
+            end
+        end
+    end
+    return abilities
+end
+
+function EventSystem:_trackCastAbility()
+    -- get all the ability bars
+    -- loop through each of the ability bars and add the abilities to a list with their cooldowns
+    -- if any of the abilities have a cooldown of 0, and now have a different cooldown, then an ability was cast
+    -- ? how can I catch abilities that do not have a cooldown?
+    local abilities = self:_getAllAbilities()
+    for _, ability in ipairs(abilities) do
+        if self._previousAbilityCooldowns[ability.name] and self._previousAbilityCooldowns[ability.name] == 0 and ability.cooldown_timer ~= 0 then
+            self:trigger(self.events.onCastAbility, ability)
+        end
+        self._previousAbilityCooldowns[ability.name] = ability.cooldown_timer
+    end
 end
 
 return EventSystem

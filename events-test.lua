@@ -50,6 +50,39 @@ EVENTS:subscribe(EVENTS.events.onPlayerHealthChanged, function(health)
     print(string.format("Player health changed to %s", health))
 end)
 
+---@param item AllObject
+EVENTS:subscribe(EVENTS.events.onItemSpawn, function(item)
+    if item and item.Id ~= nil then
+        print(string.format("Item %s spawned", item.Id))
+    end
+end)
+
+---@param item AllObject
+EVENTS:subscribe(EVENTS.events.onItemDespawn, function(item)
+    if item and item.Id ~= nil then
+        print(string.format("Item %s despawned", item.Id))
+    end
+end)
+
+---@param target AllObject
+---@param buffId number
+EVENTS:subscribe(EVENTS.events.onTargetBuffGain, function(target, buffId)
+    print(string.format("Target %s gained buff %s", target.Id, buffId))
+end)
+
+---@param target AllObject
+---@param buffId number
+EVENTS:subscribe(EVENTS.events.onTargetBuffLose, function(target, buffId)
+    print(string.format("Target %s lost buff %s", target.Id, buffId))
+end)
+
+---@param ability Abilitybar
+EVENTS:subscribe(EVENTS.events.onCastAbility, function(ability)
+    if ability and ability.id ~= nil then
+        print(string.format("Ability %s casted", ability.id))
+    end
+end)
+
 while API.Read_LoopyLoop() do
     EVENTS:trackEvents()
     API.RandomSleep2(10, 0, 0)

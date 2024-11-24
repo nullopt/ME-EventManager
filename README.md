@@ -22,6 +22,9 @@ The `EventSystem` supports the following events:
 - `onPlayerHealthChanged`: Triggered when a player's health changes.
 - `onItemSpawn`: Triggered when an item spawns.
 - `onItemDespawn`: Triggered when an item despawns.
+- `onTargetBuffGain`: Triggered when a target gains a buff.
+- `onTargetBuffLose`: Triggered when a target loses a buff.
+- `onCastAbility`: Triggered when a player casts an ability.
 
 ## Usage
 
